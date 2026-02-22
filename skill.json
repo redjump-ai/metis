@@ -1,0 +1,49 @@
+{
+  "name": "metis",
+  "description": "URL Content Reader with Obsidian Sync - Fetch web content and save to your Obsidian vault",
+  "commands": [
+    {
+      "name": "sync",
+      "description": "Sync all URLs from inbox file and save content to Obsidian",
+      "usage": "python -m metis.cli sync"
+    },
+    {
+      "name": "fetch",
+      "description": "Fetch a single URL and save to Obsidian",
+      "usage": "python -m metis.cli fetch <url>"
+    },
+    {
+      "name": "list-urls",
+      "description": "List all URLs with their status",
+      "usage": "python -m metis.cli list-urls"
+    },
+    {
+      "name": "schedule",
+      "description": "Run scheduled sync at regular intervals",
+      "usage": "python -m metis.cli schedule --interval=30"
+    },
+    {
+      "name": "wechat-setup",
+      "description": "Setup WeChat login for reading public account articles",
+      "usage": "python -m metis.cli wechat-setup"
+    }
+  ],
+  "env_vars": [
+    {
+      "name": "OBSIDIAN_VAULT_PATH",
+      "description": "Path to your Obsidian vault"
+    },
+    {
+      "name": "URL_INBOX_MD",
+      "description": "Input file with URLs to process"
+    },
+    {
+      "name": "INBOX_PATH",
+      "description": "Output folder for saved content"
+    },
+    {
+      "name": "FIRECRAWL_API_KEY",
+      "description": "Firecrawl API key (optional)"
+    }
+  ]
+}

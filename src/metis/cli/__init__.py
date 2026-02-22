@@ -259,3 +259,39 @@ def wechat_status():
     
     if age.days > 7:
         console.print("\n[yellow]⚠ 认证可能已过期，建议重新登录[/yellow]")
+
+
+
+@app.command()
+def schedule(
+    interval: int = typer.Option(60, help="Sync interval in minutes"),
+    max_count: int = typer.Option(0, help="Max number of syncs (0 = infinite)"),
+):
+    """Run scheduled sync at regular intervals.
+    
+    Example:
+        metis schedule --interval=30
+        metis schedule --interval=60 --max-count=10
+    """
+    import time
+    from datetime import datetime
+    
+    console.print(f"[blue]Starting scheduled sync (every {interval} minutes)[/blue]")
+    console.print("Press Ctrl+C to stop\n")
+    
+    count = 0
+    while True:
+        count += 1
+        console.print(f"\n[cyan]Sync #{count} at {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}[/cyan]")
+        
+        try:
+            asyncio.run(_sync())
+        except Exception as e:
+            console.print(f"[red]Error: {e}[/red]")
+        
+        if max_count > 0 and count >= max_count:
+            console.print(f"\n[green]Completed {count} syncs, exiting[/green]")
+            break
+        
+        console.print(f"\n[dim]Next sync in {interval} minutes...[/dim]")
+        time.sleep(interval * 60)
