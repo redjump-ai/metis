@@ -151,6 +151,9 @@ metis/
 ```bash
 uvicorn metis.api:app --reload
 ```
+## AI Assistant Integration
+
+Metis can be used as a skill in AI assistants. See [SKILL.md](SKILL.md) for details.
 
 ## Contributing
 
