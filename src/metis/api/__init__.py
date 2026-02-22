@@ -10,7 +10,7 @@ from pydantic import BaseModel
 
 from metis.config import settings
 from metis.fetchers import ContentFetcher
-from metis.processors import process_content
+from metis.processors import process_content, summarize_text
 from metis.storage import save_to_obsidian, read_url_inbox
 from metis.storage.database import url_db
 
@@ -73,6 +73,9 @@ async def fetch_url(request: FetchRequest):
                 raw_markdown=content.markdown,
                 title=content.title,
             )
+            
+            # Generate summary
+            processed.summary = summarize_text(processed.markdown)
 
             # Save to Obsidian
             path = save_to_obsidian(processed, status="extracted")
@@ -122,6 +125,8 @@ async def sync_urls(request: SyncRequest):
                     raw_markdown=content.markdown,
                     title=content.title,
                 )
+                # Generate summary
+                processed.summary = summarize_text(processed.markdown)
                 save_to_obsidian(processed, status="extracted")
                 count += 1
 

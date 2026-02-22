@@ -35,22 +35,28 @@ def format_frontmatter(
     created: datetime,
     status: str = "pending",
     tags: list[str] | None = None,
+    summary: str = "",
 ) -> str:
     tags_str = ", ".join(f'"{t}"' for t in (tags or []))
     # Clean title (remove author prefix like 'Name on X:')
     clean_title = _clean_title(title)
     # Escape quotes in title for valid YAML
     escaped_title = clean_title.replace('"', '\\"')
-    return f"""---
+    # Escape quotes in summary
+    escaped_summary = summary.replace('"', '\\"').replace('\n', ' ')
+    
+    frontmatter = f"""---
 title: "{escaped_title}"
 url: "{url}"
 platform: "{platform}"
 created: {created.isoformat()}
 status: "{status}"
 tags: [{tags_str}]
+summary: "{escaped_summary}"
 ---
 
 """
+    return frontmatter
 
 
 def get_content_path(url: str) -> Path | None:
@@ -137,6 +143,7 @@ def save_to_obsidian(content: ProcessedContent, status: str = "pending", use_inb
         created=datetime.now(),
         status=status,
         tags=[content.platform_name, "metis"],
+        summary=content.summary,
     )
 
     file_path.write_text(frontmatter + content.markdown, encoding="utf-8")

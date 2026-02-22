@@ -18,6 +18,7 @@ class ProcessedContent:
     images: list[str]
     url: str
     platform_name: str
+    summary: str = ""
 
 
 def sanitize_filename(name: str) -> str:
@@ -150,3 +151,71 @@ def _clean_metadata(markdown: str) -> str:
             cleaned_lines.append(line)
 
     return "\n".join(cleaned_lines)
+
+
+def summarize_text(markdown: str, max_length: int = 200) -> str:
+    """Generate a summary from markdown content using extractive method.
+    
+    Args:
+        markdown: The markdown content to summarize
+        max_length: Maximum length of summary in characters
+    
+    Returns:
+        A concise summary of the content
+    """
+    # Remove code blocks
+    text = re.sub(r'```[\s\S]*?```', '', markdown)
+    # Remove inline code
+    text = re.sub(r'`[^`]+`', '', text)
+    # Remove image references
+    text = re.sub(r'!\[.*?\]\(.*?\)', '', text)
+    # Remove links but keep text
+    text = re.sub(r'\[([^\]]+)\]\([^)]+\)', r'\1', text)
+    # Remove headers markers
+    text = re.sub(r'^#+ ', '', text, flags=re.MULTILINE)
+    # Remove horizontal rules
+    text = re.sub(r'^---+$', '', text, flags=re.MULTILINE)
+    
+    # Split into paragraphs
+    paragraphs = text.split('\n\n')
+    
+    # Filter out short paragraphs and noise
+    meaningful_paragraphs = []
+    for p in paragraphs:
+        p = p.strip()
+        # Skip very short paragraphs
+        if len(p) < 20:
+            continue
+        # Skip paragraphs that are mostly special characters
+        if len(re.sub(r'[\w\u4e00-\u9fff]', '', p)) > len(p) * 0.5:
+            continue
+        meaningful_paragraphs.append(p)
+    
+    if not meaningful_paragraphs:
+        return ""
+    
+    # Take first 2-3 meaningful paragraphs
+    summary_parts = []
+    total_length = 0
+    
+    for para in meaningful_paragraphs[:3]:
+        if total_length + len(para) <= max_length:
+            summary_parts.append(para)
+            total_length += len(para)
+        elif not summary_parts:
+            # If first paragraph is too long, truncate it
+            summary_parts.append(para[:max_length] + "...")
+            break
+        else:
+            break
+    
+    summary = ' '.join(summary_parts)
+    
+    # Clean up extra whitespace
+    summary = re.sub(r'\s+', ' ', summary).strip()
+    
+    # Truncate if still too long
+    if len(summary) > max_length:
+        summary = summary[:max_length].rsplit(' ', 1)[0] + "..."
+    
+    return summary
