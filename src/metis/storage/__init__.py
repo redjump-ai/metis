@@ -7,6 +7,27 @@ from metis.config import settings
 from metis.processors import ProcessedContent
 
 
+def _clean_title(title: str) -> str:
+    """Clean title by removing author prefix (e.g., 'Name on X: Title' -> 'Title')."""
+    if ':' in title:
+        parts = title.split(':', 1)
+        if parts[1].strip():
+            return parts[1].strip()
+    return title
+
+
+def _sanitize_filename(name: str) -> str:
+    """Generate filename from title (strip author prefix, remove special chars)."""
+    # Use _clean_title to strip author prefix
+    name = _clean_title(name)
+    # Remove special characters
+    name = re.sub(r'[<>:"/\\|?*]', "", name)
+    name = name.replace(" ", "-")
+    # Keep only alphanumeric, Chinese, and basic punctuation
+    name = re.sub(r'[^\w\u4e00-\u9fff\-_]', "", name)
+    return name[:80] or "untitled"
+
+
 def format_frontmatter(
     title: str,
     url: str,
@@ -16,8 +37,10 @@ def format_frontmatter(
     tags: list[str] | None = None,
 ) -> str:
     tags_str = ", ".join(f'"{t}"' for t in (tags or []))
+    # Clean title (remove author prefix like 'Name on X:')
+    clean_title = _clean_title(title)
     # Escape quotes in title for valid YAML
-    escaped_title = title.replace('"', '\\"')
+    escaped_title = clean_title.replace('"', '\\"')
     return f"""---
 title: "{escaped_title}"
 url: "{url}"
@@ -28,20 +51,6 @@ tags: [{tags_str}]
 ---
 
 """
-
-
-def _sanitize_filename(name: str) -> str:
-    # If there's a colon, keep only what comes after it (strip author prefix)
-    if ':' in name:
-        parts = name.split(':', 1)
-        if parts[1].strip():
-            name = parts[1].strip()
-    # Remove special characters
-    name = re.sub(r'[<>:"/\\|?*]', "", name)
-    name = name.replace(" ", "-")
-    # Keep only alphanumeric, Chinese, and basic punctuation
-    name = re.sub(r'[^\w\u4e00-\u9fff\-_]', "", name)
-    return name[:80] or "untitled"
 
 
 def get_content_path(url: str) -> Path | None:
@@ -66,8 +75,7 @@ def _update_frontmatter_status(file_path: Path, status: str):
     if not content.startswith("---"):
         return
     
-    # Find frontmatter boundaries - match from start to the second ---
-    # Frontmatter ends with "---" followed by newline
+    # Find frontmatter boundaries
     lines = content.split('\n')
     frontmatter_lines = []
     in_frontmatter = False
@@ -105,21 +113,19 @@ def save_to_obsidian(content: ProcessedContent, status: str = "pending", use_inb
     vault_path.mkdir(parents=True, exist_ok=True)
 
     if use_inbox:
-        # Save as individual files in inbox_path (not folders)
         base_path = vault_path / settings.inbox_path
     else:
         base_path = vault_path
     
     base_path.mkdir(parents=True, exist_ok=True)
 
-    # Check if file already exists for this URL (by searching in content)
+    # Check if file already exists for this URL
     existing_path = get_content_path(content.url)
     if existing_path and existing_path.exists():
-        # Update status in existing file's frontmatter
         _update_frontmatter_status(existing_path, status)
         return existing_path
     
-    # Generate filename from title only (no date, no hash suffix)
+    # Generate filename from title only
     safe_title = _sanitize_filename(content.title)
     filename = f"{safe_title[:50]}.md"
     file_path = base_path / filename
@@ -147,14 +153,8 @@ def read_url_inbox() -> list[str]:
     
     content = inbox_file.read_text(encoding="utf-8")
     
-    # Extract URLs from markdown links or plain URLs
     urls = []
-    
-    # Match markdown links: [text](url) - capture only the URL
     urls.extend(re.findall(r'\[[^\]]+\]\((https?://[^\)]+)\)', content))
-    
-    # Match plain URLs
     urls.extend(re.findall(r'https?://[^\s\)>\]]+', content))
     
-    # Return unique URLs
     return list(set([url for url in urls if url]))
