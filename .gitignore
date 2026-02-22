@@ -99,3 +99,7 @@ obsidian-vault/
 
 # Playwright
 playwright/.auth/
+
+
+# Issue polling
+scripts/.processed_issues
