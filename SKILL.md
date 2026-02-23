@@ -1,6 +1,6 @@
 ---
 name: metis
-description: URL 内容抓取和 Obsidian 同步工具。支持多平台内容提取（WeChat、Xiaohongshu、Zhihu、Twitter/X 等）、自动翻译、LLM 摘要生成、图像下载。当用户需要抓取网页内容、保存到 Obsidian、管理 RSS/URL 工作流时使用。
+description: URL 内容抓取和 Obsidian 同步工具。支持多平台内容提取（WeChat、Xiaohongshu、Zhihu、Twitter/X 等）、自动翻译、LLM 摘要生成、图像下载。当用户需要抓取网页内容，保存到 Obsidian，管理 RSS/URL 工作流，生成文章摘要，翻译文章时使用。
 triggers:
   - "抓取网页内容"
   - "保存到 Obsidian"
@@ -15,6 +15,8 @@ triggers:
   - "sync urls"
   - "extract wechat"
   - "summarize article"
+  - "translate content"
+  - "download article"
 ---
 
 # Metis
@@ -42,14 +44,21 @@ URL 内容抓取和 Obsidian 同步工具 - 帮助 AI agent 抓取网页内容�
 ### 2. 内容处理
 
 - **图像下载**: 自动下载所有图像到本地，带正确的 Referer 头
-- **翻译**: 自动将英文内容翻译为中文（支持长文本分块）
-- **摘要**: 使用 LLM 生成文章摘要（OpenAI/Anthropic/Ollama）
+- **翻译**: 自动将英文内容翻译为中文（支持长文本分块，最大 4500 字符/块）
+- **摘要**: 使用 LLM 生成文章摘要（OpenAI/Anthropic/Ollama/Zhipu）
 
 ### 3. Obsidian 同步
 
 - 保存为 Markdown 文件，带 YAML frontmatter
 - Frontmatter 字段：title, url, platform, status, tags, summary
 - 工作流状态：pending → extracted → read → valuable → archive
+- 支持 URL 状态跟踪数据库
+
+### 4. API 服务
+
+- 内置 FastAPI 服务器
+- Web UI 界面
+- RESTful API 端点
 
 ## 快速开始
 
@@ -76,18 +85,22 @@ INBOX_PATH=personal-os/captures/inbox
 FIRECRAWL_API_KEY=your_api_key
 OPENAI_API_KEY=sk-...
 ANTHROPIC_API_KEY=sk-ant-...
+ZHIPU_API_KEY=your_zhipu_key
 ```
 
 创建 `config.yaml` 配置 LLM：
 
 ```yaml
 llm:
-  provider: "openai"  # openai, anthropic, ollama
+  provider: "openai"  # openai, anthropic, ollama, zhipu
   model: "gpt-4o-mini"
 
 translation:
   enabled: true
   target_lang: "zh"
+
+fetch:
+  timeout: 30
 ```
 
 ## 使用场景
@@ -108,13 +121,21 @@ python -m metis.cli sync
 
 ```bash
 python -m metis.cli fetch <url>
+
+# 仅获取内容不保存
+python -m metis.cli fetch <url> --save=false
 ```
 
 ### 场景 3: 生成文章摘要
 
 ```bash
+# 使用默认配置
 python -m metis.cli summarize article.md
+
+# 指定 provider 和 model
 python -m metis.cli summarize article.md --provider openai --model gpt-4
+
+# 输出到文件
 python -m metis.cli summarize article.md --output summary.md
 ```
 
@@ -138,13 +159,23 @@ python -m metis.cli wechat-setup
 python -m metis.cli wechat-status
 ```
 
+### 场景 6: 启动 API 服务器
+
+```bash
+# 启动 FastAPI 服务器
+uvicorn metis.api:app --reload --port 8000
+
+# 访问 Web UI
+# http://localhost:8000
+```
+
 ## CLI 命令参考
 
 | 命令 | 描述 |
 |------|------|
 | `sync` | 同步 inbox 中的所有 URL |
 | `fetch <url>` | 抓取单个 URL |
-| `list-urls` | 列出所有 URL 及状态 |
+| `list-urls [status]` | 列出所有 URL（可选：按状态过滤） |
 | `mark-read <url>` | 标记为已读 |
 | `mark-valuable <url>` | 标记为有价值 |
 | `archive <url>` | 归档 URL |
@@ -153,6 +184,19 @@ python -m metis.cli wechat-status
 | `config-llm` | 查看 LLM 配置 |
 | `schedule` | 定时同步 |
 | `init` | 查看配置 |
+| `wechat-setup` | 设置微信登录 |
+| `wechat-status` | 查看微信登录状态 |
+
+## API 端点
+
+| 方法 | 端点 | 描述 |
+|------|------|------|
+| GET | `/` | Web UI 主页 |
+| GET | `/health` | 健康检查 |
+| POST | `/api/fetch` | 抓取 URL |
+| POST | `/api/sync` | 批量同步 |
+| GET | `/api/urls` | 列出所有 URL |
+| POST | `/api/summarize` | 生成摘要 |
 
 ## 故障排除
 
@@ -161,39 +205,49 @@ python -m metis.cli wechat-status
 1. **检查 URL 是否有效**
 2. **平台是否需要登录**（WeChat、知乎可能需要）
 3. **尝试使用 Playwright**（代码会自动回退）
+4. **检查 Firecrawl API key**（如果使用 Firecrawl）
 
 ### 翻译失败
 
 - 检查网络连接
-- 长文本会自动分块处理
+- 长文本会自动分块处理（每块 4500 字符）
+- 翻译失败时会返回原文
 
 ### 摘要生成失败
 
 - 检查 LLM API key 配置
 - 尝试不同的 provider 或 model
+- 检查 config.yaml 配置
+
+### 知乎抓取
+
+- 知乎有严格的反爬机制，建议使用 Playwright MCP 或手动登录
 
 ## 架构
 
 ```
 metis/
 ├── src/metis/
+│   ├── api/           # FastAPI + Web UI
 │   ├── cli/           # Typer CLI
-│   ├── fetchers/      # 内容抓取
-│   ├── processors/    # 处理、翻译、摘要
-│   ├── storage/       # Obsidian 同步
-│   ├── llm/           # LLM providers
-│   └── config/        # 配置管理
+│   ├── fetchers/      # 内容抓取 (Firecrawl, Jina, Playwright)
+│   ├── processors/   # 处理、翻译、摘要
+│   ├── storage/      # Obsidian 同步、数据库
+│   ├── llm/          # LLM providers
+│   └── config/       # 配置管理
 ```
 
 ## 环境变量
 
-| 变量 | 描述 |
-|------|------|
-| `OBSIDIAN_VAULT_PATH` | Obsidian vault 路径 |
-| `URL_INBOX_MD` | URL 输入文件 |
-| `INBOX_PATH` | 输出文件夹 |
-| `FIRECRAWL_API_KEY` | Firecrawl API key |
-| `OPENAI_API_KEY` | OpenAI API key |
-| `ANTHROPIC_API_KEY` | Anthropic API key |
-| `OLLAMA_BASE_URL` | Ollama 地址 |
-| `TRANSLATION_TARGET_LANG` | 翻译目标语言 |
+| 变量 | 描述 | 默认值 |
+|------|------|---------|
+| `OBSIDIAN_VAULT_PATH` | Obsidian vault 路径 | `./obsidian-vault` |
+| `URL_INBOX_MD` | URL 输入文件 | `URL_INBOX.md` |
+| `INBOX_PATH` | 输出文件夹 | `inbox` |
+| `FIRECRAWL_API_KEY` | Firecrawl API key | - |
+| `OPENAI_API_KEY` | OpenAI API key | - |
+| `ANTHROPIC_API_KEY` | Anthropic API key | - |
+| `ZHIPU_API_KEY` | Zhipu API key | - |
+| `OLLAMA_BASE_URL` | Ollama 地址 | `http://localhost:11434` |
+| `TRANSLATION_TARGET_LANG` | 翻译目标语言 | `zh` |
+| `FETCH_TIMEOUT` | 抓取超时(秒) | 30 |
