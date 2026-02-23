@@ -7,7 +7,9 @@ from typing import Optional
 # Try to load .env file
 try:
     from dotenv import load_dotenv
-    load_dotenv()
+    # Load .env from project root (where pyproject.toml is)
+    project_root = Path(__file__).parent.parent.parent
+    load_dotenv(dotenv_path=project_root / ".env", override=False)
 except ImportError:
     pass
 
