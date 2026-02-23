@@ -2,8 +2,6 @@
 import re
 from pathlib import Path
 
-from metis.config import settings
-
 
 def is_english_text(text: str) -> bool:
     english_chars = len(re.findall(r"[a-zA-Z]", text))

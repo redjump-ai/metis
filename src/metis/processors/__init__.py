@@ -46,7 +46,7 @@ def extract_image_urls(markdown: str) -> list[str]:
     return list(set(urls))
 
 
-async def download_image(url: str, media_folder: Path, platform_name: str) -> Optional[Path]:
+async def download_image(url: str, media_folder: Path, platform_name: str) -> Path | None:
     platform = detect_platform(url)
     headers = {"User-Agent": settings.user_agent}
 
@@ -176,10 +176,10 @@ def summarize_text(markdown: str, max_length: int = 200) -> str:
     text = re.sub(r'^#+ ', '', text, flags=re.MULTILINE)
     # Remove horizontal rules
     text = re.sub(r'^---+$', '', text, flags=re.MULTILINE)
-    
+
     # Split into paragraphs
     paragraphs = text.split('\n\n')
-    
+
     # Filter out short paragraphs and noise
     meaningful_paragraphs = []
     for p in paragraphs:
@@ -191,14 +191,14 @@ def summarize_text(markdown: str, max_length: int = 200) -> str:
         if len(re.sub(r'[\w\u4e00-\u9fff]', '', p)) > len(p) * 0.5:
             continue
         meaningful_paragraphs.append(p)
-    
+
     if not meaningful_paragraphs:
         return ""
-    
+
     # Take first 2-3 meaningful paragraphs
     summary_parts = []
     total_length = 0
-    
+
     for para in meaningful_paragraphs[:3]:
         if total_length + len(para) <= max_length:
             summary_parts.append(para)
@@ -209,16 +209,16 @@ def summarize_text(markdown: str, max_length: int = 200) -> str:
             break
         else:
             break
-    
+
     summary = ' '.join(summary_parts)
-    
+
     # Clean up extra whitespace
     summary = re.sub(r'\s+', ' ', summary).strip()
-    
+
     # Truncate if still too long
     if len(summary) > max_length:
         summary = summary[:max_length].rsplit(' ', 1)[0] + "..."
-    
+
     return summary
 
 
@@ -243,6 +243,6 @@ async def summarize_with_llm(
     client = llm_client
     if provider or model:
         client = llm_client.__class__(provider=provider, model=model)
-    
+
     response = await client.summarize(markdown, prompt)
     return response.content

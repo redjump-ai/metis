@@ -7,7 +7,7 @@ from typing import Optional
 import httpx
 
 from metis.config import settings
-from metis.fetchers.platform import detect_platform, PlatformInfo
+from metis.fetchers.platform import PlatformInfo, detect_platform
 
 
 @dataclass
@@ -16,18 +16,18 @@ class FetchedContent:
     title: str
     markdown: str
     platform: PlatformInfo
-    raw_html: Optional[str] = None
-    metadata: Optional[dict] = None
+    raw_html: str | None = None
+    metadata: dict | None = None
 
 
 class BaseFetcher(ABC):
     @abstractmethod
-    async def fetch(self, url: str) -> Optional[FetchedContent]:
+    async def fetch(self, url: str) -> FetchedContent | None:
         pass
 
 
 class FirecrawlFetcher(BaseFetcher):
-    async def fetch(self, url: str) -> Optional[FetchedContent]:
+    async def fetch(self, url: str) -> FetchedContent | None:
         if not settings.firecrawl_api_key:
             return None
 
@@ -69,7 +69,7 @@ class FirecrawlFetcher(BaseFetcher):
                 title = result.metadata.get("title", "")
                 if title:
                     return title[:200]
-        
+
         lines = markdown.split("\n")
         for line in lines[:30]:
             line = line.strip()
@@ -83,7 +83,7 @@ class FirecrawlFetcher(BaseFetcher):
 
 
 class JinaFetcher(BaseFetcher):
-    async def fetch(self, url: str) -> Optional[FetchedContent]:
+    async def fetch(self, url: str) -> FetchedContent | None:
         try:
             jina_url = f"https://r.jina.ai/{url}"
             headers = {
@@ -132,7 +132,7 @@ class JinaFetcher(BaseFetcher):
 class PlaywrightFetcher(BaseFetcher):
     """Playwright-based fetcher with platform-specific extraction."""
 
-    async def fetch(self, url: str) -> Optional[FetchedContent]:
+    async def fetch(self, url: str) -> FetchedContent | None:
         try:
             from playwright.async_api import async_playwright
 
@@ -164,7 +164,7 @@ class PlaywrightFetcher(BaseFetcher):
                         await verify_btn.click()
                         await page.wait_for_load_state("networkidle", timeout=15000)
                         page_content = await page.content()
-                    
+
                     # If still on verification page, fail
                     if "环境异常" in page_content or "完成验证" in page_content:
                         await browser.close()
@@ -298,7 +298,7 @@ class PlaywrightFetcher(BaseFetcher):
     def _format_markdown(self, content: dict, platform_name: str) -> str:
         """Format extracted content as markdown."""
         lines = []
-        
+
         if platform_name == "wechat":
             metadata = content.get("metadata", {})
             if metadata.get("author"):
@@ -327,7 +327,7 @@ class PlaywrightFetcher(BaseFetcher):
             lines.append(content.get("content", ""))
         else:
             lines.append(content.get("content", ""))
-        
+
         return "\n".join(lines)
 
 
@@ -339,9 +339,9 @@ class ContentFetcher:
             PlaywrightFetcher(),
         ]
 
-    async def fetch(self, url: str) -> Optional[FetchedContent]:
+    async def fetch(self, url: str) -> FetchedContent | None:
         platform = detect_platform(url)
-        
+
         # For platforms that require login (like WeChat), try Playwright first
         if platform.name == "wechat":
             # Try Playwright first for WeChat (better content extraction)
@@ -350,7 +350,7 @@ class ContentFetcher:
             if result:
                 return result
             # Fall back to other fetchers if Playwright fails
-        
+
         # For Zhihu, try Playwright first (Jina often gets rate limited)
         if platform.name == "zhihu":
             playwright = PlaywrightFetcher()
@@ -358,7 +358,7 @@ class ContentFetcher:
             if result:
                 return result
             # Fall back to other fetchers
-        
+
         # Default order: Firecrawl -> Jina -> Playwright
         for fetcher in self.fetchers:
             result = await fetcher.fetch(url)

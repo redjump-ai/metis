@@ -46,7 +46,7 @@ def format_frontmatter(
     escaped_title = clean_title.replace('"', '\\"')
     # Escape quotes in summary
     escaped_summary = summary.replace('"', '\\"').replace('\n', ' ')
-    
+
     frontmatter = f"""---
 title: "{escaped_title}"
 url: "{url}"
@@ -79,16 +79,16 @@ def _update_frontmatter_status(file_path: Path, status: str):
         content = file_path.read_text(encoding="utf-8")
     except Exception:
         return
-    
+
     if not content.startswith("---"):
         return
-    
+
     # Find frontmatter boundaries
     lines = content.split('\n')
     frontmatter_lines = []
     in_frontmatter = False
     body_start = 0
-    
+
     for i, line in enumerate(lines):
         if i == 0 and line == '---':
             in_frontmatter = True
@@ -99,10 +99,10 @@ def _update_frontmatter_status(file_path: Path, status: str):
             break
         elif in_frontmatter:
             frontmatter_lines.append(line)
-    
+
     if body_start == 0:
         return
-    
+
     # Update status line
     new_frontmatter_lines = []
     for line in frontmatter_lines:
@@ -110,7 +110,7 @@ def _update_frontmatter_status(file_path: Path, status: str):
             new_frontmatter_lines.append(f'status: "{status}"')
         else:
             new_frontmatter_lines.append(line)
-    
+
     # Rebuild file
     new_content = '\n'.join(new_frontmatter_lines) + '\n' + '\n'.join(lines[body_start:])
     file_path.write_text(new_content, encoding="utf-8")
@@ -124,7 +124,7 @@ def save_to_obsidian(content: ProcessedContent, status: str = "pending", use_inb
         base_path = vault_path / settings.inbox_path
     else:
         base_path = vault_path
-    
+
     base_path.mkdir(parents=True, exist_ok=True)
 
     # Check if file already exists for this URL
@@ -132,7 +132,7 @@ def save_to_obsidian(content: ProcessedContent, status: str = "pending", use_inb
     if existing_path and existing_path.exists():
         _update_frontmatter_status(existing_path, status)
         return existing_path
-    
+
     # Generate filename from title only
     safe_title = _sanitize_filename(content.title)
     filename = f"{safe_title[:50]}.md"
@@ -156,14 +156,14 @@ def save_to_obsidian(content: ProcessedContent, status: str = "pending", use_inb
 def read_url_inbox() -> list[str]:
     """Read URLs from the inbox markdown file."""
     inbox_file = settings.obsidian_vault_path / settings.url_inbox_md
-    
+
     if not inbox_file.exists():
         return []
-    
+
     content = inbox_file.read_text(encoding="utf-8")
-    
+
     urls = []
     urls.extend(re.findall(r'\[[^\]]+\]\((https?://[^\)]+)\)', content))
     urls.extend(re.findall(r'https?://[^\s\)>\]]+', content))
-    
+
     return list(set([url for url in urls if url]))

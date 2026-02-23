@@ -1,6 +1,5 @@
 """Platform detection module."""
 from dataclasses import dataclass
-from typing import Optional
 from urllib.parse import urlparse
 
 
@@ -8,7 +7,7 @@ from urllib.parse import urlparse
 class PlatformInfo:
     name: str
     requires_login: bool
-    referer: Optional[str] = None
+    referer: str | None = None
 
 
 PLATFORMS = {

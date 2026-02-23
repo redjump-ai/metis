@@ -1,21 +1,19 @@
 """Metis CLI interface."""
 import asyncio
 from pathlib import Path
+from typing import Optional
 
 import typer
 from rich.console import Console
 from rich.progress import Progress, SpinnerColumn, TextColumn
 from rich.table import Table
 
-from typing import Optional
-
 from metis.config import settings
 from metis.fetchers import ContentFetcher
 from metis.processors import process_content, summarize_with_llm
 from metis.processors.translation import is_english_text, process_with_translation
-from metis.storage import save_to_obsidian
-from metis.storage import read_url_inbox
-from metis.storage.database import url_db, ensure_base_file
+from metis.storage import read_url_inbox, save_to_obsidian
+from metis.storage.database import ensure_base_file, url_db
 
 app = typer.Typer(help="Metis - URL Content Reader with Obsidian Sync")
 console = Console()
@@ -89,10 +87,10 @@ async def _fetch(url: str, save: bool, use_inbox: bool):
 
 
 @app.command()
-def list_urls(status: Optional[str] = None):
+def list_urls(status: str | None = None):
     """List all URLs in the database."""
     urls = url_db.get_all_urls(status)
-    
+
     if not urls:
         console.print("[yellow]No URLs found[/yellow]")
         return
@@ -175,23 +173,23 @@ def sync():
 
 async def _sync():
     urls = read_url_inbox()
-    
+
     if not urls:
         console.print("[yellow]No URLs found in inbox file[/yellow]")
         return
-    
+
     console.print(f"[blue]Found {len(urls)} URLs to process[/blue]")
-    
+
     for url in urls:
         # Skip if already processed
         existing = url_db.get_url(url)
         if existing and existing.get("status") in ["extracted", "read", "valuable", "archived"]:
             console.print(f"[dim]Skipping (already processed): {url}[/dim]")
             continue
-        
+
         console.print(f"[cyan]Processing: {url}[/cyan]")
         await _fetch(url, save=True, use_inbox=True)
-    
+
     console.print("[green]Sync complete![/green]")
 
 
@@ -207,44 +205,45 @@ def wechat_setup(wait_seconds: int = 120):
 
 async def _wechat_setup(wait_seconds: int):
     """Perform WeChat login setup."""
-    from playwright.async_api import async_playwright
     import json
-    
+
+    from playwright.async_api import async_playwright
+
     console.print("[blue]WeChat Login Setup[/blue]")
     console.print("正在启动浏览器，请扫码登录微信...")
-    
+
     # Ensure data directory exists
     settings.base_path.mkdir(parents=True, exist_ok=True)
-    
+
     async with async_playwright() as p:
         browser = await p.chromium.launch(headless=False)
         context = await browser.new_context()
         page = await context.new_page()
-        
+
         # Open WeChat MP login page
         await page.goto("https://mp.weixin.qq.com/")
-        
+
         console.print("\n请在浏览器中完成以下操作：")
         console.print("1. 点击右上角「登录」")
         console.print("2. 使用微信扫码登录")
         console.print(f"3. 登录成功后会自动保存（等待 {wait_seconds} 秒）")
         console.print("\n等待登录中...")
-        
+
         # Wait for login
         try:
             await page.wait_for_selector(".weui-desktop-account__nickname", timeout=wait_seconds * 1000)
             console.print("✓ 检测到登录成功！")
         except:
             console.print("等待超时，尝试保存当前状态...")
-        
+
         # Save auth state
         storage = await context.storage_state()
-        
+
         with open(settings.wechat_auth_path, 'w', encoding='utf-8') as f:
             json.dump(storage, f, ensure_ascii=False, indent=2)
-        
+
         await browser.close()
-    
+
     console.print(f"[green]✓ 认证状态已保存到: {settings.wechat_auth_path}[/green]")
 
 
@@ -255,16 +254,16 @@ def wechat_status():
         console.print("[yellow]✗ 未找到认证状态[/yellow]")
         console.print("运行: python -m metis.cli wechat-setup")
         return
-    
+
     from datetime import datetime
     mtime = datetime.fromtimestamp(settings.wechat_auth_path.stat().st_mtime)
     age = datetime.now() - mtime
-    
-    console.print(f"[green]✓ 认证文件存在[/green]")
+
+    console.print("[green]✓ 认证文件存在[/green]")
     console.print(f"  路径: {settings.wechat_auth_path}")
     console.print(f"  创建时间: {mtime.strftime('%Y-%m-%d %H:%M:%S')}")
     console.print(f"  已过去: {age.days} 天 {age.seconds // 3600} 小时")
-    
+
     if age.days > 7:
         console.print("\n[yellow]⚠ 认证可能已过期，建议重新登录[/yellow]")
 
@@ -283,24 +282,24 @@ def schedule(
     """
     import time
     from datetime import datetime
-    
+
     console.print(f"[blue]Starting scheduled sync (every {interval} minutes)[/blue]")
     console.print("Press Ctrl+C to stop\n")
-    
+
     count = 0
     while True:
         count += 1
         console.print(f"\n[cyan]Sync #{count} at {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}[/cyan]")
-        
+
         try:
             asyncio.run(_sync())
         except Exception as e:
             console.print(f"[red]Error: {e}[/red]")
-        
+
         if max_count > 0 and count >= max_count:
             console.print(f"\n[green]Completed {count} syncs, exiting[/green]")
             break
-        
+
         console.print(f"\n[dim]Next sync in {interval} minutes...[/dim]")
         time.sleep(interval * 60)
 
@@ -325,33 +324,33 @@ def summarize(
 
 async def _summarize(markdown_file: str, provider: str | None, model: str | None, output: str | None):
     from metis.processors import summarize_with_llm
-    
+
     file_path = Path(markdown_file)
     if not file_path.exists():
         console.print(f"[red]File not found: {markdown_file}[/red]")
         raise typer.Exit(1)
-    
+
     markdown_content = file_path.read_text(encoding="utf-8")
-    
+
     # Strip frontmatter if present
     if markdown_content.startswith("---"):
         parts = markdown_content.split("---", 2)
         if len(parts) >= 3:
             markdown_content = parts[2].strip()
-    
+
     with Progress(
         SpinnerColumn(),
         TextColumn("[progress.description]{task.description}"),
         console=console,
     ) as progress:
         task = progress.add_task("Generating summary with LLM...", total=None)
-        
+
         summary = await summarize_with_llm(
             markdown=markdown_content,
             provider=provider,
             model=model,
         )
-        
+
         if output:
             output_path = Path(output)
             output_path.write_text(summary, encoding="utf-8")
@@ -359,7 +358,7 @@ async def _summarize(markdown_file: str, provider: str | None, model: str | None
         else:
             console.print("\n[cyan]Summary:[/cyan]")
             console.print(summary)
-        
+
         progress.update(task, description="Done!", completed=True)
 
 
@@ -372,5 +371,5 @@ def config_llm():
     console.print(f"OpenAI API Key: {'*' * 20 if settings.openai_api_key else 'Not set'}")
     console.print(f"Anthropic API Key: {'*' * 20 if settings.anthropic_api_key else 'Not set'}")
     console.print(f"Ollama Base URL: {settings.ollama_base_url}")
-    console.print(f"\n[blue]Summarization Prompt:[/blue]")
+    console.print("\n[blue]Summarization Prompt:[/blue]")
     console.print(settings.summarization_prompt[:200] + "...")

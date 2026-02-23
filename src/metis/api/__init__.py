@@ -1,5 +1,4 @@
 """FastAPI application for Metis."""
-import asyncio
 from pathlib import Path
 from typing import Optional
 
@@ -11,7 +10,7 @@ from pydantic import BaseModel
 from metis.config import settings
 from metis.fetchers import ContentFetcher
 from metis.processors import process_content, summarize_text, summarize_with_llm
-from metis.storage import save_to_obsidian, read_url_inbox
+from metis.storage import read_url_inbox, save_to_obsidian
 from metis.storage.database import url_db
 
 app = FastAPI(title="Metis API", version="0.1.0")
@@ -73,7 +72,7 @@ async def fetch_url(request: FetchRequest):
                 raw_markdown=content.markdown,
                 title=content.title,
             )
-            
+
             # Generate summary
             processed.summary = summarize_text(processed.markdown)
 
@@ -163,7 +162,6 @@ async def list_urls():
         return []
 
 
-
 class SummarizeRequest(BaseModel):
     markdown: str
     prompt: str | None = None
@@ -188,7 +186,7 @@ async def summarize_content(request: SummarizeRequest):
             provider=request.provider,
             model=request.model,
         )
-        
+
         return SummarizeResponse(
             success=True,
             summary=summary,
