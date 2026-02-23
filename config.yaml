@@ -1,0 +1,116 @@
+# Metis 应用配置文件
+# 配置优先级: 环境变量 > config.yaml
+# 注意: API Keys 请放在 .env 文件中
+
+# ===================
+# 核心路径配置
+# ===================
+base_path: personal-os/captures
+obsidian_vault_path: /Users/linchen/Library/Mobile Documents/iCloud~md~obsidian/Documents
+url_inbox_md: personal-os/captures/URL_INBOX.md
+inbox_path: personal-os/captures/inbox
+media_folder: personal-os/captures/media
+archive_folder: personal-os/captures/archive
+
+# ===================
+# 抓取配置
+# ===================
+translation_target_lang: zh
+fetch_timeout: 30
+user_agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36
+playwright_state_path: ./data/playwright_state.json
+wechat_auth_path: ./data/wechat_auth.json
+
+# ===================
+# LLM 配置
+# ===================
+llm_provider: zhipu
+llm_model: glm-4.5-air
+ollama_base_url: http://localhost:11434
+
+# ===================
+# Prompt 模板
+# ===================
+summarization_prompt: |
+  请为以下文章生成一个简洁的中文摘要,不超过200字,概括文章的主要内容和核心观点:
+
+  {{content}}
+
+  摘要:
+
+# ===================
+# 模型配置
+# ===================
+models:
+  openai:
+    default_model: gpt-4o-mini
+    models:
+      gpt-4o-mini:
+        name: gpt-4o-mini
+        temperature: 0.7
+        max_tokens: 500
+      gpt-4o:
+        name: gpt-4o
+        temperature: 0.7
+        max_tokens: 500
+      gpt-3.5-turbo:
+        name: gpt-3.5-turbo
+        temperature: 0.7
+        max_tokens: 500
+
+  anthropic:
+    default_model: claude-3-haiku-20240307
+    models:
+      claude-3-haiku-20240307:
+        name: claude-3-haiku-20240307
+        temperature: 0.7
+        max_tokens: 500
+      claude-3-5-sonnet-20241022:
+        name: claude-3-5-sonnet-20241022
+        temperature: 0.7
+        max_tokens: 500
+      claude-3-opus-20240229:
+        name: claude-3-opus-20240229
+        temperature: 0.7
+        max_tokens: 500
+
+  ollama:
+    default_model: qwen2.5:7b
+    models:
+      qwen2.5:7b:
+        name: qwen2.5:7b
+        temperature: 0.7
+        max_tokens: 500
+      deepseek-r1:
+        name: deepseek-r1
+        temperature: 0.7
+        max_tokens: 500
+
+  zhipu:
+    default_model: glm-4.5-air
+    base_url: https://open.bigmodel.cn/api/paas/v4/
+    models:
+      glm-4.5-air:
+        name: glm-4.5-air
+        temperature: 0.7
+        max_tokens: 500
+      glm-4.6:
+        name: glm-4.6
+        temperature: 0.7
+        max_tokens: 500
+      glm-4.6v:
+        name: glm-4.6v
+        temperature: 0.7
+        max_tokens: 500
+      glm-4:
+        name: glm-4
+        temperature: 0.7
+        max_tokens: 500
+      glm-4.7-flash:
+        name: glm-4.7-flash
+        temperature: 0.7
+        max_tokens: 500
+      glm-4.6v-flash:
+        name: glm-4.6v-flash
+        temperature: 0.7
+        max_tokens: 500

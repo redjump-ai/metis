@@ -11,7 +11,7 @@ from typing import Optional
 
 from metis.config import settings
 from metis.fetchers import ContentFetcher
-from metis.processors import process_content
+from metis.processors import process_content, summarize_with_llm
 from metis.processors.translation import is_english_text, process_with_translation
 from metis.storage import save_to_obsidian
 from metis.storage import read_url_inbox
@@ -58,6 +58,14 @@ async def _fetch(url: str, save: bool, use_inbox: bool):
         )
 
         if save:
+            # Generate summary using LLM
+            progress.update(task, description="Generating summary...")
+            try:
+                processed.summary = await summarize_with_llm(processed.markdown)
+            except Exception:
+                # Fall back to empty summary if LLM fails
+                processed.summary = ""
+
             progress.update(task, description="Saving to Obsidian...")
             # Save with status="extracted" directly to inbox file frontmatter
             path = save_to_obsidian(processed, status="extracted", use_inbox=use_inbox)
