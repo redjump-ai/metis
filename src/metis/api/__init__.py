@@ -10,7 +10,7 @@ from pydantic import BaseModel
 
 from metis.config import settings
 from metis.fetchers import ContentFetcher
-from metis.processors import process_content, summarize_text
+from metis.processors import process_content, summarize_text, summarize_with_llm
 from metis.storage import save_to_obsidian, read_url_inbox
 from metis.storage.database import url_db
 
@@ -161,3 +161,44 @@ async def list_urls():
         ]
     except Exception:
         return []
+
+
+
+class SummarizeRequest(BaseModel):
+    markdown: str
+    prompt: str | None = None
+    provider: str | None = None
+    model: str | None = None
+
+
+class SummarizeResponse(BaseModel):
+    success: bool
+    summary: str
+    provider: str
+    model: str
+
+
+@app.post("/api/summarize", response_model=SummarizeResponse)
+async def summarize_content(request: SummarizeRequest):
+    """Generate summary using LLM."""
+    try:
+        summary = await summarize_with_llm(
+            markdown=request.markdown,
+            prompt=request.prompt,
+            provider=request.provider,
+            model=request.model,
+        )
+        
+        return SummarizeResponse(
+            success=True,
+            summary=summary,
+            provider=request.provider or settings.llm_provider,
+            model=request.model or settings.llm_model,
+        )
+    except Exception as e:
+        return SummarizeResponse(
+            success=False,
+            summary=str(e),
+            provider=request.provider or settings.llm_provider,
+            model=request.model or settings.llm_model,
+        )

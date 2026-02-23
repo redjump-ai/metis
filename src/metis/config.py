@@ -27,6 +27,18 @@ class Settings:
     user_agent: str = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
     playwright_state_path: Path = Path("./data/playwright_state.json")
     wechat_auth_path: Path = Path("./data/wechat_auth.json")
+    
+    # LLM Configuration
+    llm_provider: str = "openai"
+    llm_model: str = "gpt-4o-mini"
+    openai_api_key: Optional[str] = None
+    anthropic_api_key: Optional[str] = None
+    ollama_base_url: str = "http://localhost:11434"
+    summarization_prompt: str = """请为以下文章生成一个简洁的中文摘要,不超过200字,概括文章的主要内容和核心观点:
+
+{{content}}
+
+摘要:"""
 
     def __init__(self):
         # Load vault_path first (needed for relative base_path)
@@ -80,6 +92,31 @@ class Settings:
         pw_state = os.getenv("PLAYWRIGHT_STATE_PATH")
         if pw_state:
             self.playwright_state_path = Path(pw_state)
+        
+        # LLM Configuration
+        llm_provider = os.getenv("LLM_PROVIDER")
+        if llm_provider:
+            self.llm_provider = llm_provider
+        
+        llm_model = os.getenv("LLM_MODEL")
+        if llm_model:
+            self.llm_model = llm_model
+        
+        openai_key = os.getenv("OPENAI_API_KEY")
+        if openai_key:
+            self.openai_api_key = openai_key
+        
+        anthropic_key = os.getenv("ANTHROPIC_API_KEY")
+        if anthropic_key:
+            self.anthropic_api_key = anthropic_key
+        
+        ollama_url = os.getenv("OLLAMA_BASE_URL")
+        if ollama_url:
+            self.ollama_base_url = ollama_url
+        
+        prompt = os.getenv("SUMMARIZATION_PROMPT")
+        if prompt:
+            self.summarization_prompt = prompt
         
         self.obsidian_vault_path.mkdir(parents=True, exist_ok=True)
         self.media_folder.mkdir(parents=True, exist_ok=True)

@@ -295,3 +295,74 @@ def schedule(
         
         console.print(f"\n[dim]Next sync in {interval} minutes...[/dim]")
         time.sleep(interval * 60)
+
+
+
+@app.command()
+def summarize(
+    markdown_file: str = typer.Argument(..., help="Path to markdown file"),
+    provider: str = typer.Option(None, help="LLM provider (openai, anthropic, ollama)"),
+    model: str = typer.Option(None, help="Model name"),
+    output: str = typer.Option(None, help="Output file path"),
+):
+    """Summarize markdown content using LLM.
+    
+    Example:
+        metis summarize article.md
+        metis summarize article.md --provider openai --model gpt-4
+        metis summarize article.md --output summary.md
+    """
+    asyncio.run(_summarize(markdown_file, provider, model, output))
+
+
+async def _summarize(markdown_file: str, provider: str | None, model: str | None, output: str | None):
+    from metis.processors import summarize_with_llm
+    
+    file_path = Path(markdown_file)
+    if not file_path.exists():
+        console.print(f"[red]File not found: {markdown_file}[/red]")
+        raise typer.Exit(1)
+    
+    markdown_content = file_path.read_text(encoding="utf-8")
+    
+    # Strip frontmatter if present
+    if markdown_content.startswith("---"):
+        parts = markdown_content.split("---", 2)
+        if len(parts) >= 3:
+            markdown_content = parts[2].strip()
+    
+    with Progress(
+        SpinnerColumn(),
+        TextColumn("[progress.description]{task.description}"),
+        console=console,
+    ) as progress:
+        task = progress.add_task("Generating summary with LLM...", total=None)
+        
+        summary = await summarize_with_llm(
+            markdown=markdown_content,
+            provider=provider,
+            model=model,
+        )
+        
+        if output:
+            output_path = Path(output)
+            output_path.write_text(summary, encoding="utf-8")
+            console.print(f"[green]Summary saved to: {output}[/green]")
+        else:
+            console.print("\n[cyan]Summary:[/cyan]")
+            console.print(summary)
+        
+        progress.update(task, description="Done!", completed=True)
+
+
+@app.command()
+def config_llm():
+    """Show LLM configuration."""
+    console.print("[blue]LLM Configuration[/blue]")
+    console.print(f"Provider: {settings.llm_provider}")
+    console.print(f"Model: {settings.llm_model}")
+    console.print(f"OpenAI API Key: {'*' * 20 if settings.openai_api_key else 'Not set'}")
+    console.print(f"Anthropic API Key: {'*' * 20 if settings.anthropic_api_key else 'Not set'}")
+    console.print(f"Ollama Base URL: {settings.ollama_base_url}")
+    console.print(f"\n[blue]Summarization Prompt:[/blue]")
+    console.print(settings.summarization_prompt[:200] + "...")

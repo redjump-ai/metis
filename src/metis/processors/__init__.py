@@ -9,6 +9,7 @@ import httpx
 
 from metis.config import settings
 from metis.fetchers.platform import detect_platform
+from metis.llm import llm_client
 
 
 @dataclass
@@ -219,3 +220,29 @@ def summarize_text(markdown: str, max_length: int = 200) -> str:
         summary = summary[:max_length].rsplit(' ', 1)[0] + "..."
     
     return summary
+
+
+
+async def summarize_with_llm(
+    markdown: str,
+    prompt: str | None = None,
+    provider: str | None = None,
+    model: str | None = None,
+) -> str:
+    """Generate a summary using LLM.
+    
+    Args:
+        markdown: The markdown content to summarize
+        prompt: Custom prompt template (uses {{content}} placeholder)
+        provider: Override LLM provider (openai, anthropic, ollama)
+        model: Override model name
+    
+    Returns:
+        LLM-generated summary
+    """
+    client = llm_client
+    if provider or model:
+        client = llm_client.__class__(provider=provider, model=model)
+    
+    response = await client.summarize(markdown, prompt)
+    return response.content
