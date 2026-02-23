@@ -5,7 +5,7 @@ from typing import Optional
 
 import httpx
 
-from metis.config import settings
+from metis.config import settings, get_model_config
 
 
 @dataclass
@@ -26,6 +26,8 @@ class LLMClient:
     ):
         self.provider = provider or settings.llm_provider
         self.model = model or settings.llm_model
+        # Load model config from JSON
+        self.model_config = get_model_config(self.provider, self.model)
     
     async def summarize(self, content: str, prompt: Optional[str] = None) -> LLMResponse:
         """Generate summary using LLM."""
@@ -53,10 +55,10 @@ class LLMClient:
         }
         
         payload = {
-            "model": self.model,
+            "model": self.model_config["name"],
             "messages": [{"role": "user", "content": prompt}],
-            "max_tokens": 500,
-            "temperature": 0.7,
+            "max_tokens": self.model_config["max_tokens"],
+            "temperature": self.model_config["temperature"],
         }
         
         async with httpx.AsyncClient(timeout=60) as client:
@@ -87,8 +89,8 @@ class LLMClient:
         }
         
         payload = {
-            "model": self.model,
-            "max_tokens": 500,
+            "model": self.model_config["name"],
+            "max_tokens": self.model_config["max_tokens"],
             "messages": [{"role": "user", "content": prompt}],
         }
         
@@ -112,12 +114,12 @@ class LLMClient:
         headers = {"Content-Type": "application/json"}
         
         payload = {
-            "model": self.model,
+            "model": self.model_config["name"],
             "prompt": prompt,
             "stream": False,
             "options": {
-                "num_predict": 500,
-                "temperature": 0.7,
+                "num_predict": self.model_config["max_tokens"],
+                "temperature": self.model_config["temperature"],
             },
         }
         

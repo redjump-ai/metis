@@ -1,3 +1,7 @@
+import json
+from typing import Any, Dict
+
+
 """Metis configuration module."""
 
 import os
@@ -12,6 +16,54 @@ try:
     load_dotenv(dotenv_path=project_root / ".env", override=False)
 except ImportError:
     pass
+
+# Load model configuration from JSON
+_model_config: Dict[str, Any] = {}
+
+
+def load_model_config() -> Dict[str, Any]:
+    """Load model configuration from JSON file."""
+    global _model_config
+    if not _model_config:
+        config_path = project_root / "config" / "models.json"
+        if config_path.exists():
+            with open(config_path, "r", encoding="utf-8") as f:
+                _model_config = json.load(f)
+    return _model_config
+
+
+def get_model_config(provider: str, model: Optional[str] = None) -> Dict[str, Any]:
+    """Get model configuration for a specific provider and model.
+
+    Args:
+        provider: LLM provider (openai, anthropic, ollama)
+        model: Model name (optional, uses default if not specified)
+
+    Returns:
+        Dict with model configuration (name, temperature, max_tokens)
+    """
+    config = load_model_config()
+    providers = config.get("providers", {})
+
+    if provider not in providers:
+        # Return defaults if provider not in config
+        return {"name": model or "gpt-4o-mini", "temperature": 0.7, "max_tokens": 500}
+
+    provider_config = providers[provider]
+
+    # Use default model if not specified
+    if not model:
+        model = provider_config.get("default_model", "gpt-4o-mini")
+
+    models = provider_config.get("models", {})
+    model_config = models.get(model, {})
+
+    # Return model config or defaults
+    return {
+        "name": model_config.get("name", model),
+        "temperature": model_config.get("temperature", 0.7),
+        "max_tokens": model_config.get("max_tokens", 500),
+    }
 
 
 class Settings:
@@ -114,6 +166,12 @@ class Settings:
         if ollama_url:
             self.ollama_base_url = ollama_url
         
+        # Load summarization prompt from JSON config first, then allow .env override
+        model_config = load_model_config()
+        json_prompt = model_config.get("summarization_prompt")
+        if json_prompt:
+            self.summarization_prompt = json_prompt
+
         prompt = os.getenv("SUMMARIZATION_PROMPT")
         if prompt:
             self.summarization_prompt = prompt
