@@ -45,6 +45,9 @@ class FirecrawlFetcher(BaseFetcher):
                 # Check for WeChat verification page
                 if "环境异常" in markdown or "完成验证" in markdown[:500]:
                     return None
+                # Check for Zhihu error response
+                if "error" in markdown[:200] or "限制本次访问" in markdown:
+                    return None
                 if len(markdown) > 100:
                     platform = detect_platform(url)
                     title = self._extract_title(markdown, result)
@@ -93,6 +96,9 @@ class JinaFetcher(BaseFetcher):
                     markdown = response.text
                     # Check for WeChat verification page
                     if "环境异常" in markdown or "完成验证" in markdown[:500]:
+                        return None
+                    # Check for Zhihu error response
+                    if "error" in markdown[:200] or "限制本次访问" in markdown:
                         return None
                     platform = detect_platform(url)
                     title = self._extract_title(markdown)
@@ -164,9 +170,16 @@ class PlaywrightFetcher(BaseFetcher):
                         await browser.close()
                         return None
 
+                # Check for Zhihu error/rate limit page
+                if "限制本次访问" in page_content or "异常" in page_content[:500]:
+                    await browser.close()
+                    return None
+
                 # Platform-specific content extraction
                 if platform.name == "wechat":
                     content = await self._extract_wechat_content(page)
+                elif platform.name == "zhihu":
+                    content = await self._extract_zhihu_content(page)
                 else:
                     content = await self._extract_generic_content(page)
 
@@ -234,6 +247,42 @@ class PlaywrightFetcher(BaseFetcher):
         """)
         return result
 
+    async def _extract_zhihu_content(self, page) -> dict:
+        """Extract content from Zhihu article."""
+        try:
+            # Wait for article content to load
+            await page.wait_for_selector(".Post-RichText", timeout=10000)
+        except Exception:
+            pass
+
+        result = await page.evaluate("""
+            () => {
+                const title = document.querySelector('.Post-Title')?.innerText?.trim() 
+                    || document.querySelector('h1')?.innerText?.trim() 
+                    || document.title || '';
+                const author = document.querySelector('.AuthorInfo-name')?.innerText?.trim() || '';
+                const contentElement = document.querySelector('.Post-RichText');
+                const content = contentElement?.innerText?.trim() || '';
+                const html = contentElement?.innerHTML || '';
+                
+                // Extract publish time
+                const publishTime = document.querySelector('.ContentItem-time')?.innerText?.trim() || '';
+
+                return {
+                    title,
+                    author,
+                    content,
+                    publishTime,
+                    html,
+                    metadata: {
+                        author,
+                        publishTime
+                    }
+                };
+            }
+        """)
+        return result
+
     async def _extract_generic_content(self, page) -> dict:
         """Generic content extraction for other platforms."""
         return await page.evaluate("""() => {
@@ -251,6 +300,19 @@ class PlaywrightFetcher(BaseFetcher):
         lines = []
         
         if platform_name == "wechat":
+            metadata = content.get("metadata", {})
+            if metadata.get("author"):
+                lines.append(f"**作者**: {metadata['author']}")
+            if metadata.get("publishTime"):
+                lines.append(f"**发布时间**: {metadata['publishTime']}")
+            if lines:
+                lines.insert(0, "")
+            lines.insert(0, f"# {content.get('title', '无标题')}")
+            lines.append("")
+            lines.append("---")
+            lines.append("")
+            lines.append(content.get("content", ""))
+        elif platform_name == "zhihu":
             metadata = content.get("metadata", {})
             if metadata.get("author"):
                 lines.append(f"**作者**: {metadata['author']}")
@@ -288,6 +350,14 @@ class ContentFetcher:
             if result:
                 return result
             # Fall back to other fetchers if Playwright fails
+        
+        # For Zhihu, try Playwright first (Jina often gets rate limited)
+        if platform.name == "zhihu":
+            playwright = PlaywrightFetcher()
+            result = await playwright.fetch(url)
+            if result:
+                return result
+            # Fall back to other fetchers
         
         # Default order: Firecrawl -> Jina -> Playwright
         for fetcher in self.fetchers:
