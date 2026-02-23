@@ -9,6 +9,8 @@ from metis.processors import ProcessedContent
 
 def _clean_title(title: str) -> str:
     """Clean title by removing author prefix (e.g., 'Name on X: Title' -> 'Title')."""
+    # Remove backslashes (fix escaped characters like \\- that are invalid in YAML)
+    title = title.replace("\\", "")
     if ':' in title:
         parts = title.split(':', 1)
         if parts[1].strip():

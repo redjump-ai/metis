@@ -32,7 +32,11 @@ class LLMClient:
     async def summarize(self, content: str, prompt: Optional[str] = None) -> LLMResponse:
         """Generate summary using LLM."""
         prompt_template = prompt or settings.summarization_prompt
-        user_prompt = prompt_template.replace("{{content}}", content[:8000])
+        # Reserve ~1000 chars for prompt template + response
+        max_content_len = 6000
+        # Truncate content to fit within context window
+        truncated_content = content[:max_content_len] if len(content) > max_content_len else content
+        user_prompt = prompt_template.replace("{{content}}", truncated_content)
         
         if self.provider == "openai":
             return await self._openai_complete(user_prompt)
