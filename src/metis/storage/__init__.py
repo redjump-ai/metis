@@ -5,6 +5,7 @@ from pathlib import Path
 
 from metis.config import settings
 from metis.processors import ProcessedContent
+from metis.processors.formatter import format_markdown, clean_markdown
 
 
 def _clean_title(title: str) -> str:
@@ -116,7 +117,23 @@ def _update_frontmatter_status(file_path: Path, status: str):
     file_path.write_text(new_content, encoding="utf-8")
 
 
-def save_to_obsidian(content: ProcessedContent, status: str = "pending", use_inbox: bool = True) -> Path:
+def save_to_obsidian(
+    content: ProcessedContent,
+    status: str = "pending",
+    use_inbox: bool = True,
+    format_md: bool = True,
+) -> Path:
+    """Save content to Obsidian vault.
+    
+    Args:
+        content: ProcessedContent to save
+        status: Workflow status (pending, extracted, read, valuable, archived)
+        use_inbox: Save to inbox folder or vault root
+        format_md: Whether to format the markdown content
+    
+    Returns:
+        Path to saved file
+    """
     vault_path = settings.obsidian_vault_path
     vault_path.mkdir(parents=True, exist_ok=True)
 
@@ -138,6 +155,16 @@ def save_to_obsidian(content: ProcessedContent, status: str = "pending", use_inb
     filename = f"{safe_title[:50]}.md"
     file_path = base_path / filename
 
+    # Format markdown content if enabled
+    markdown_body = content.markdown
+    if format_md:
+        try:
+            markdown_body = format_markdown(markdown_body)
+            markdown_body = clean_markdown(markdown_body)
+        except Exception:
+            # Fallback to original if formatting fails
+            pass
+
     frontmatter = format_frontmatter(
         title=content.title,
         url=content.url,
@@ -148,7 +175,7 @@ def save_to_obsidian(content: ProcessedContent, status: str = "pending", use_inb
         summary=content.summary,
     )
 
-    file_path.write_text(frontmatter + content.markdown, encoding="utf-8")
+    file_path.write_text(frontmatter + markdown_body, encoding="utf-8")
 
     return file_path
 
