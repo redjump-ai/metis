@@ -1,105 +1,199 @@
-# Metis Skill
+---
+name: metis
+description: URL 内容抓取和 Obsidian 同步工具。支持多平台内容提取（WeChat、Xiaohongshu、Zhihu、Twitter/X 等）、自动翻译、LLM 摘要生成、图像下载。当用户需要抓取网页内容、保存到 Obsidian、管理 RSS/URL 工作流时使用。
+triggers:
+  - "抓取网页内容"
+  - "保存到 Obsidian"
+  - "同步 URL"
+  - "提取微信文章"
+  - "提取小红书"
+  - "提取知乎文章"
+  - "翻译文章"
+  - "生成摘要"
+  - "fetch url"
+  - "save to obsidian"
+  - "sync urls"
+  - "extract wechat"
+  - "summarize article"
+---
 
-Metis can be used as a skill in AI assistants like OpenCode, Claude Code (Trae), OpenClaw, etc.
+# Metis
 
-## Commands
+URL 内容抓取和 Obsidian 同步工具 - 帮助 AI agent 抓取网页内容并保存到 Obsidian vault。
 
-### sync
-Sync all URLs from inbox file and save content to Obsidian.
+## 核心功能
 
-```bash
-python -m metis.cli sync
-```
+### 1. 内容抓取
 
-### fetch
-Fetch a single URL and save to Obsidian.
+支持多策略抓取（按优先级）：
+- **Firecrawl** - AI 驱动的网页抓取（需要 API key）
+- **Jina Reader** - 免费 API 抓取
+- **Playwright** - 浏览器自动化（用于登录受限内容）
 
-```bash
-python -m metis.cli fetch <url>
-```
+支持的平台：
+- WeChat 公众号文章（需要登录）
+- Xiaohongshu 小红书
+- Zhihu 知乎
+- Twitter/X
+- Bilibili
+- Douyin 抖音
+- 通用网页
 
-### list-urls
-List all URLs with their status.
+### 2. 内容处理
 
-```bash
-python -m metis.cli list-urls
-```
+- **图像下载**: 自动下载所有图像到本地，带正确的 Referer 头
+- **翻译**: 自动将英文内容翻译为中文（支持长文本分块）
+- **摘要**: 使用 LLM 生成文章摘要（OpenAI/Anthropic/Ollama）
 
-### schedule
-Run scheduled sync at regular intervals.
+### 3. Obsidian 同步
 
-```bash
-python -m metis.cli schedule --interval=30
-python -m metis.cli schedule --interval=60 --max-count=10
-```
+- 保存为 Markdown 文件，带 YAML frontmatter
+- Frontmatter 字段：title, url, platform, status, tags, summary
+- 工作流状态：pending → extracted → read → valuable → archive
 
-### wechat-setup
-Setup WeChat login for reading public account articles.
+## 快速开始
 
-```bash
-python -m metis.cli wechat-setup
-```
-
-### wechat-status
-Check WeChat login status.
-
-```bash
-python -m metis.cli wechat-status
-```
-
-### summarize
-Summarize markdown content using LLM.
-
-```bash
-python -m metis.cli summarize <file.md>
-python -m metis.cli summarize article.md --provider openai --model gpt-4
-python -m metis.cli summarize article.md --output summary.md
-```
-
-### config-llm
-Show LLM configuration.
+### 安装
 
 ```bash
-python -m metis.cli config-llm
+pip install metis
+# 或从源码安装
+git clone https://github.com/redjump-ai/metis.git
+cd metis
+pip install -e .
 ```
 
-### init
-Show current configuration.
+### 配置
+
+创建 `.env` 文件：
 
 ```bash
-python -m metis.cli init
+OBSIDIAN_VAULT_PATH=/path/to/your/obsidian/vault
+URL_INBOX_MD=personal-os/captures/URL_INBOX.md
+INBOX_PATH=personal-os/captures/inbox
+
+# 可选：API Keys
+FIRECRAWL_API_KEY=your_api_key
+OPENAI_API_KEY=sk-...
+ANTHROPIC_API_KEY=sk-ant-...
 ```
 
-## Environment Variables
-
-| Variable | Description |
-|----------|-------------|
-| `OBSIDIAN_VAULT_PATH` | Path to your Obsidian vault |
-| `URL_INBOX_MD` | Input file with URLs to process |
-| `INBOX_PATH` | Output folder for saved content |
-| `FIRECRAWL_API_KEY` | Firecrawl API key (optional) |
-| `OPENAI_API_KEY` | OpenAI API key (optional) |
-| `ANTHROPIC_API_KEY` | Anthropic API key (optional) |
-| `OLLAMA_BASE_URL` | Ollama base URL (optional) |
-
-## Configuration
-
-Create `config.yaml` for AI features:
+创建 `config.yaml` 配置 LLM：
 
 ```yaml
 llm:
   provider: "openai"  # openai, anthropic, ollama
   model: "gpt-4o-mini"
-  temperature: 0.7
 
 translation:
   enabled: true
   target_lang: "zh"
 ```
 
-## Features
+## 使用场景
 
-- **Multi-platform**: WeChat, Xiaohongshu, Zhihu, Twitter/X, etc.
-- **Translation**: Auto-translate English to Chinese with long-text support
-- **Summarization**: Generate AI summaries using OpenAI, Anthropic, or Ollama
-- **Workflow**: Track content from inbox → extracted → read → valuable
+### 场景 1: 从 URL Inbox 同步
+
+```bash
+# 添加 URL 到 inbox 文件
+# URL_INBOX.md 内容：
+# https://x.com/user/status/123456
+# https://mp.weixin.qq.com/s/xxxxx
+
+# 运行同步
+python -m metis.cli sync
+```
+
+### 场景 2: 抓取单个 URL
+
+```bash
+python -m metis.cli fetch <url>
+```
+
+### 场景 3: 生成文章摘要
+
+```bash
+python -m metis.cli summarize article.md
+python -m metis.cli summarize article.md --provider openai --model gpt-4
+python -m metis.cli summarize article.md --output summary.md
+```
+
+### 场景 4: 定时同步
+
+```bash
+# 每 30 分钟同步一次
+python -m metis.cli schedule --interval=30
+
+# 同步 10 次后退出
+python -m metis.cli schedule --interval=60 --max-count=10
+```
+
+### 场景 5: 微信登录
+
+```bash
+# 首次设置：扫码登录
+python -m metis.cli wechat-setup
+
+# 查看登录状态
+python -m metis.cli wechat-status
+```
+
+## CLI 命令参考
+
+| 命令 | 描述 |
+|------|------|
+| `sync` | 同步 inbox 中的所有 URL |
+| `fetch <url>` | 抓取单个 URL |
+| `list-urls` | 列出所有 URL 及状态 |
+| `mark-read <url>` | 标记为已读 |
+| `mark-valuable <url>` | 标记为有价值 |
+| `archive <url>` | 归档 URL |
+| `status <url>` | 查看 URL 状态 |
+| `summarize <file>` | 使用 LLM 摘要 |
+| `config-llm` | 查看 LLM 配置 |
+| `schedule` | 定时同步 |
+| `init` | 查看配置 |
+
+## 故障排除
+
+### 抓取失败
+
+1. **检查 URL 是否有效**
+2. **平台是否需要登录**（WeChat、知乎可能需要）
+3. **尝试使用 Playwright**（代码会自动回退）
+
+### 翻译失败
+
+- 检查网络连接
+- 长文本会自动分块处理
+
+### 摘要生成失败
+
+- 检查 LLM API key 配置
+- 尝试不同的 provider 或 model
+
+## 架构
+
+```
+metis/
+├── src/metis/
+│   ├── cli/           # Typer CLI
+│   ├── fetchers/      # 内容抓取
+│   ├── processors/    # 处理、翻译、摘要
+│   ├── storage/       # Obsidian 同步
+│   ├── llm/           # LLM providers
+│   └── config/        # 配置管理
+```
+
+## 环境变量
+
+| 变量 | 描述 |
+|------|------|
+| `OBSIDIAN_VAULT_PATH` | Obsidian vault 路径 |
+| `URL_INBOX_MD` | URL 输入文件 |
+| `INBOX_PATH` | 输出文件夹 |
+| `FIRECRAWL_API_KEY` | Firecrawl API key |
+| `OPENAI_API_KEY` | OpenAI API key |
+| `ANTHROPIC_API_KEY` | Anthropic API key |
+| `OLLAMA_BASE_URL` | Ollama 地址 |
+| `TRANSLATION_TARGET_LANG` | 翻译目标语言 |
